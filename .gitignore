@@ -1,0 +1,16 @@
+node_modules/
+cypress/videos
+cypress/plugins
+cypress/screenshots
+cypress/support
+
+.idea
+
+__pycache__
+
+app-sanic/transactions.db
+
+README.md
+
+.DS_Store
+

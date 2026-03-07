@@ -1,0 +1,16 @@
+{
+  "name": "account-management-fullstack-level-3",
+  "version": "1.0.0",
+  "scripts": {
+    "build:backend": "cd app-sanic && pip3 install -r requirements.txt",
+    "build:frontend": "cd app-react && npm install && npm run build",
+    "build": "npm run build:backend & npm run build:frontend",
+    "start:backend": "cd app-sanic && sanic server.app",
+    "start:frontend": "cd app-react && npm run start",
+    "start": "npm run start:backend & npm run start:frontend",
+    "test": "cypress run"
+  },
+  "devDependencies": {
+    "cypress": "^12.17.1"
+  }
+}
