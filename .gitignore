@@ -10,7 +10,9 @@ __pycache__
 
 app-sanic/transactions.db
 
-README.md
-
 .DS_Store
+
+README.md
+App.old.jsx
+server.old.py
 

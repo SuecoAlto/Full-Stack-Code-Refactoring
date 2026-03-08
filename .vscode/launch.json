@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/b.m/Desktop/AlvaLabsCodeTest/transaction-management-full-stack-architecture-review-d2hg0-7ja105-main",
+      "program": "/Users/b.m/Desktop/AlvaLabsCodeTest/transaction-management-full-stack-architecture-review-d2hg0-7ja105-main/build/Debug/outDebug"
+    }
+  ]
+}
