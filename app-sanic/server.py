@@ -4,7 +4,7 @@ No business logic or database code belongs here.  This file:
 1. Creates the Sanic app instance and configures CORS.
 2. Registers the API route blueprint.
 3. Attaches the global error handler.
-4. Initializes the database schema at startup.
+4. Initializes the database schema at startup via a lifecycle hook.
 
 Start command (from root):
 cd app-sanic && sanic server.app
@@ -28,7 +28,18 @@ Extend(app)
 
 app.blueprint(api)
 register_error_handlers(app)
-init_db()
+
+
+@app.before_server_start
+async def startup(app, loop):
+    """Run async initialization before the server starts accepting requests.
+
+    Sanic calls this hook inside its own event loop, so we can safely
+    await async functions here. This is where WAL-mode, table creation,
+    and index creation happen.
+    """
+    await init_db()
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)

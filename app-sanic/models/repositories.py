@@ -1,46 +1,32 @@
-"""Data access layer — parameterized SQL queries for transactions and accounts.
+"""Data access layer — async parameterized SQL queries.
 
-Each function receives a database connection, executes queries, and
-returns plain Python data structures.  No business logic belongs here.
+Each function receives an aiosqlite connection and uses await for
+all database operations so the event loop stays free.
+No business logic belongs here.
 """
 
-def create_table(conn) -> None:
-    """Create database tables if they do not already exist"""
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS transactions (
-            transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id TEXT NOT NULL,
-            amount REAL NOT NULL
-        )
-        """
-    )
-    conn.commit()
 
-def insert_transaction(conn, account_id: str, amount: float) -> int:
+async def insert_transaction(db, account_id: str, amount: float) -> int:
     """Insert a new transaction row and return its auto-generated ID."""
-    cursor = conn.cursor()
-    cursor.execute(
+    cursor = await db.execute(
         "INSERT INTO transactions (account_id, amount) VALUES (?, ?)",
         (account_id, amount),
     )
-    conn.commit()
+    await db.commit()
     return cursor.lastrowid
 
 
-def get_transaction_by_id(conn, transaction_id: str) -> dict | None:
+async def get_transaction_by_id(db, transaction_id: str) -> dict | None:
     """Fetch a single transaction by primary key.
 
     Returns None if not found.
     """
-    cursor = conn.cursor()
-    cursor.execute(
+    cursor = await db.execute(
         "SELECT transaction_id, account_id, amount "
         "FROM transactions WHERE transaction_id = ?",
         (transaction_id,),
     )
-    row = cursor.fetchone()
+    row = await cursor.fetchone()
     if not row:
         return None
     return {
@@ -50,54 +36,53 @@ def get_transaction_by_id(conn, transaction_id: str) -> dict | None:
     }
 
 
-def get_all_transactions(conn, account_id: str | None = None) -> list[dict]:
+async def get_all_transactions(db, account_id: str | None = None) -> list[dict]:
     """Fetch all transactions, optionally filtered by account_id."""
-    cursor = conn.cursor()
     if account_id:
-        cursor.execute(
+        cursor = await db.execute(
             "SELECT transaction_id, account_id, amount "
             "FROM transactions WHERE account_id = ?",
             (account_id,),
         )
     else:
-        cursor.execute(
+        cursor = await db.execute(
             "SELECT transaction_id, account_id, amount FROM transactions"
         )
+    rows = await cursor.fetchall()
     return [
         {
             "transaction_id": str(row[0]),
             "account_id": row[1],
             "amount": row[2],
         }
-        for row in cursor.fetchall()
+        for row in rows
     ]
 
 
-def get_account_balance(conn, account_id: str) -> dict | None:
+async def get_account_balance(db, account_id: str) -> dict | None:
     """Calculate account balance via SUM(amount).
 
     Returns None if the account has no transactions (→ 404).
     """
-    cursor = conn.cursor()
-
-    # Check existence first (LIMIT 1 = fast bail-out)
-    cursor.execute(
+    # Check existence first (LIMIT 1 = fast bail-out via index)
+    cursor = await db.execute(
         "SELECT 1 FROM transactions WHERE account_id = ? LIMIT 1",
         (account_id,),
     )
-    if not cursor.fetchone():
+    if not await cursor.fetchone():
         return None
 
-    cursor.execute(
+    cursor = await db.execute(
         "SELECT SUM(amount) FROM transactions WHERE account_id = ?",
         (account_id,),
     )
-    balance = cursor.fetchone()[0] or 0
+    row = await cursor.fetchone()
+    balance = row[0] or 0
     return {"account_id": account_id, "balance": balance}
 
 
-def get_distinct_account_ids(conn) -> list[str]:
+async def get_distinct_account_ids(db) -> list[str]:
     """Return all unique account IDs from the transactions table."""
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT account_id FROM transactions")
-    return [row[0] for row in cursor.fetchall()]
+    cursor = await db.execute("SELECT DISTINCT account_id FROM transactions")
+    rows = await cursor.fetchall()
+    return [row[0] for row in rows]

@@ -4,6 +4,14 @@ This layer validates input and orchestrates data access via
 the repository.  It knows nothing about HTTP or Sanic — only
 domain rules.  Errors are raised as typed exceptions that the
 global error handler translates into JSON responses.
+
+All functions are async because the underlying repository layer
+uses aiosqlite (non-blocking database access).
+
+Each function opens its own database connection via:
+    async with get_connection() as db:
+This gives every request an isolated connection — essential for
+transaction isolation (BEGIN EXCLUSIVE) in the next phase.
 """
 
 from __future__ import annotations
@@ -15,7 +23,7 @@ from models import repositories
 from utils.exceptions import BadRequestError, NotFoundError
 
 
-def create_transaction(account_id: Any, amount: Any) -> dict:
+async def create_transaction(account_id: Any, amount: Any) -> dict:
     """Validate input and persist a new transaction.
 
     Returns:
@@ -27,53 +35,51 @@ def create_transaction(account_id: Any, amount: Any) -> dict:
     if not account_id or amount is None:
         raise BadRequestError("Invalid input")
 
-    with get_connection() as conn:
-        transaction_id = repositories.insert_transaction(
-            conn, account_id, amount
+    async with get_connection() as db:
+        transaction_id = await repositories.insert_transaction(
+            db, account_id, amount
         )
+        return {"transaction_id": str(transaction_id)}
 
-    return {"transaction_id": str(transaction_id)}
 
-
-def get_transaction(transaction_id: str) -> dict:
+async def get_transaction(transaction_id: str) -> dict:
     """Fetch a single transaction by ID.
 
     Raises:
         NotFoundError: If the transaction does not exist.
     """
-    with get_connection() as conn:
-        transaction = repositories.get_transaction_by_id(conn, transaction_id)
+    async with get_connection() as db:
+        transaction = await repositories.get_transaction_by_id(db, transaction_id)
 
-    if not transaction:
-        raise NotFoundError("Transaction not found")
+        if not transaction:
+            raise NotFoundError("Transaction not found")
 
-    return transaction
+        return transaction
 
 
-def list_transactions(account_id: str | None = None) -> list[dict]:
+async def list_transactions(account_id: str | None = None) -> list[dict]:
     """Return all transactions, optionally filtered by account_id."""
-    with get_connection() as conn:
-        return repositories.get_all_transactions(conn, account_id)
+    async with get_connection() as db:
+        return await repositories.get_all_transactions(db, account_id)
 
 
-def get_account(account_id: str) -> dict:
+async def get_account(account_id: str) -> dict:
     """Fetch account data including balance.
 
     Raises:
         NotFoundError: If the account has no transactions.
     """
-    with get_connection() as conn:
-        account = repositories.get_account_balance(conn, account_id)
+    async with get_connection() as db:
+        account = await repositories.get_account_balance(db, account_id)
 
-    if not account:
-        raise NotFoundError("Account not found")
+        if not account:
+            raise NotFoundError("Account not found")
 
-    return account
+        return account
 
 
-def get_account_count() -> dict:
+async def get_account_count() -> dict:
     """Return the count of unique accounts and their IDs."""
-    with get_connection() as conn:
-        account_ids = repositories.get_distinct_account_ids(conn)
-
-    return {"count": len(account_ids), "account_ids": account_ids}
+    async with get_connection() as db:
+        account_ids = await repositories.get_distinct_account_ids(db)
+        return {"count": len(account_ids), "account_ids": account_ids}

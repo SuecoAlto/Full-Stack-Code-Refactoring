@@ -26,7 +26,7 @@ async def create_transaction(request):
     account_id = data.get("account_id")
     amount = data.get("amount")
 
-    result = transaction_service.create_transaction(account_id, amount)
+    result = await transaction_service.create_transaction(account_id, amount)
     return json(result, status=201)
 
 
@@ -34,26 +34,26 @@ async def create_transaction(request):
 async def list_transactions(request):
     """List all transactions, optionally filtered by account_id query param."""
     account_id = request.args.get("account_id")
-    result = transaction_service.list_transactions(account_id)
+    result = await transaction_service.list_transactions(account_id)
     return json(result)
 
 
 @api.route("/transactions/<transaction_id>")
 async def get_transaction(request, transaction_id):
     """Fetch a single transaction by its ID."""
-    result = transaction_service.get_transaction(transaction_id)
+    result = await transaction_service.get_transaction(transaction_id)
     return json(result)
 
 
 @api.route("/accounts/count")
 async def get_account_count(request):
     """Return the number of unique accounts and their IDs."""
-    result = transaction_service.get_account_count()
+    result = await transaction_service.get_account_count()
     return json(result)
 
 
 @api.route("/accounts/<account_id>")
 async def get_account(request, account_id):
     """Fetch account data (balance) by account ID."""
-    result = transaction_service.get_account(account_id)
+    result = await transaction_service.get_account(account_id)
     return json(result)
