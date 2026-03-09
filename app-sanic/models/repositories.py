@@ -28,12 +28,13 @@ async def insert_transaction(
     # Idempotency check: if this key was already processed, return existing result
     if idempotency_key is not None:
         cursor = await db.execute(
-            "SELECT transaction_id FROM transactions WHERE idempotency_key = ?",
+            "SELECT transaction_id, created_at FROM transactions WHERE idempotency_key = ?",
             (idempotency_key,),
         )
         existing = await cursor.fetchone()
         if existing:
             transaction_id = existing[0]
+            created_at = existing[1]
             # Fetch current balance (already updated by the original request)
             cursor = await db.execute(
                 "SELECT balance FROM accounts WHERE account_id = ?",
@@ -44,14 +45,18 @@ async def insert_transaction(
             return {
                 "transaction_id": transaction_id,
                 "balance": balance,
+                "created_at": created_at,
                 "is_duplicate": True,
             }
 
     cursor = await db.execute(
-        "INSERT INTO transactions (account_id, amount, idempotency_key) VALUES (?, ?, ?)",
+        "INSERT INTO transactions (account_id, amount, idempotency_key) VALUES (?, ?, ?)"
+        " RETURNING transaction_id, created_at",
         (account_id, amount, idempotency_key),
     )
-    transaction_id = cursor.lastrowid
+    row = await cursor.fetchone()
+    transaction_id = row[0]
+    created_at = row[1]
 
     # Upsert: INSERT the account if new, or add to existing balance.
     # RETURNING gives us the result in the same round-trip — no extra SELECT.
@@ -66,7 +71,12 @@ async def insert_transaction(
     row = await cursor.fetchone()
     balance = row[0]
 
-    return {"transaction_id": transaction_id, "balance": balance, "is_duplicate": False}
+    return {
+        "transaction_id": transaction_id,
+        "balance": balance,
+        "created_at": created_at,
+        "is_duplicate": False,
+    }
 
 
 async def get_transaction_by_id(db: aiosqlite.Connection, transaction_id: str) -> dict | None:
@@ -75,7 +85,7 @@ async def get_transaction_by_id(db: aiosqlite.Connection, transaction_id: str) -
     Returns None if not found.
     """
     cursor = await db.execute(
-        "SELECT transaction_id, account_id, amount "
+        "SELECT transaction_id, account_id, amount, created_at "
         "FROM transactions WHERE transaction_id = ?",
         (transaction_id,),
     )
@@ -86,6 +96,7 @@ async def get_transaction_by_id(db: aiosqlite.Connection, transaction_id: str) -
         "transaction_id": str(row[0]),
         "account_id": row[1],
         "amount": row[2],
+        "created_at": row[3],
     }
 
 
@@ -98,14 +109,14 @@ async def get_all_transactions(db: aiosqlite.Connection, account_id: str | None 
     """
     if account_id:
         cursor = await db.execute(
-            "SELECT transaction_id, account_id, amount "
+            "SELECT transaction_id, account_id, amount, created_at "
             "FROM transactions WHERE account_id = ? "
             "ORDER BY transaction_id DESC LIMIT 50",
             (account_id,),
         )
     else:
         cursor = await db.execute(
-            "SELECT transaction_id, account_id, amount "
+            "SELECT transaction_id, account_id, amount, created_at "
             "FROM transactions "
             "ORDER BY transaction_id DESC LIMIT 50"
         )
@@ -115,6 +126,7 @@ async def get_all_transactions(db: aiosqlite.Connection, account_id: str | None 
             "transaction_id": str(row[0]),
             "account_id": row[1],
             "amount": row[2],
+            "created_at": row[3],
         }
         for row in rows
     ]

@@ -21,11 +21,17 @@ async def test_create_and_read_transaction(test_db):
     result = await transaction_service.create_transaction("acc-1", 42.0)
     tx_id = result["transaction_id"]
 
+    # POST response must match the OpenAPI Transaction schema
+    assert result["account_id"] == "acc-1"
+    assert result["amount"] == 42.0
+    assert "created_at" in result
+
     tx = await transaction_service.get_transaction(tx_id)
 
     assert tx["transaction_id"] == tx_id
     assert tx["account_id"] == "acc-1"
     assert tx["amount"] == 42.0
+    assert "created_at" in tx
 
 
 async def test_create_transaction_missing_account_id(test_db):
@@ -84,6 +90,7 @@ async def test_idempotency_duplicate_key(test_db):
     r2 = await transaction_service.create_transaction("acc-idemp", 100, "key-1")
 
     assert r1["transaction_id"] == r2["transaction_id"]
+    assert "created_at" in r2  # Duplicate also returns created_at
 
     account = await transaction_service.get_account("acc-idemp")
     assert account["balance"] == 100  # NOT 200

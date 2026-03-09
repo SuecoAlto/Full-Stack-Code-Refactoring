@@ -71,6 +71,7 @@ async def init_db() -> None:
                 transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 account_id TEXT NOT NULL,
                 amount REAL NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 idempotency_key TEXT UNIQUE
             )
             """

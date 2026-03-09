@@ -30,7 +30,8 @@ async def create_transaction(
     (duplicate idempotency_key), returns the original result.
 
     Returns:
-        dict with the generated transaction_id.
+        dict matching the OpenAPI Transaction schema
+        (transaction_id, account_id, amount, created_at).
 
     Raises:
         BadRequestError: If account_id or amount is missing/invalid.
@@ -42,7 +43,12 @@ async def create_transaction(
         result = await repositories.insert_transaction(
             db, account_id, amount, idempotency_key
         )
-        return {"transaction_id": str(result["transaction_id"])}
+        return {
+            "transaction_id": str(result["transaction_id"]),
+            "account_id": account_id,
+            "amount": amount,
+            "created_at": result["created_at"],
+        }
 
 
 async def get_transaction(transaction_id: str) -> dict:
