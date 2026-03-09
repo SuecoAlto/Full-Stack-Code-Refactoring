@@ -38,7 +38,7 @@ export function useTransactions() {
 			return false;
 		}
 
-		if (isNaN(parseFloat(amount))) {
+		if (isNaN(Number(amount))) {
 			setError("Invalid amount");
 			return false;
 		}
@@ -58,7 +58,7 @@ export function useTransactions() {
 		}
 
 		try {
-			const data = await createTransaction(accountId, parseFloat(amount));
+			const data = await createTransaction(accountId, Number(amount));
 			const transactionData = await fetchTransaction(data.transaction_id);
 			const balanceData = await fetchAccount(accountId);
 
