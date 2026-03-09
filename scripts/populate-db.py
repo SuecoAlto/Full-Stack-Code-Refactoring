@@ -55,7 +55,7 @@ TRANSACTIONS_PER_ACCOUNT = 10000
 
 
 def populate_db():
-    """Fyll databasen med slumpmässiga transaktioner.
+    """Fyll databasen med slumpmässiga transaktioner och beräknade saldon.
     Alla INSERTs sker i samma transaktion (en commit i slutet) — snabbt."""
     # Öppna databasanslutning — with stänger automatiskt vid block-slut
     # OBS: sqlite3.connect() skapar filen om den inte finns, MEN tabellen
@@ -63,6 +63,8 @@ def populate_db():
     with sqlite3.connect(DB_PATH) as conn:
         # Skapa en cursor — ett objekt som kan köra SQL-satser
         cursor = conn.cursor()
+        # Håll koll på ackumulerat saldo per konto för accounts-tabellen
+        balances = {account_id: 0.0 for account_id in ACCOUNT_IDS}
         # Yttre loop: 10 000 varv (antal transaktioner per konto)
         for _ in range(TRANSACTIONS_PER_ACCOUNT):
             # Inre loop: 5 konton — varje varv skapar 1 transaktion per konto
@@ -77,7 +79,15 @@ def populate_db():
                     'INSERT INTO transactions (account_id, amount) VALUES (?, ?)',
                     (account_id, amount)
                 )
-        # Spara ALLA 50 000 rader till disk i en enda commit
+                # Ackumulera saldo för accounts-tabellen
+                balances[account_id] += amount
+        # Fyll den denormaliserade accounts-tabellen med beräknade saldon
+        for account_id, balance in balances.items():
+            cursor.execute(
+                'INSERT INTO accounts (account_id, balance) VALUES (?, ?)',
+                (account_id, round(balance, 2))
+            )
+        # Spara ALLA rader till disk i en enda commit
         # Utan explicit commit() gör sqlite3 auto-commit per INSERT — 100x långsammare
         conn.commit()
 
@@ -87,4 +97,4 @@ if __name__ == '__main__':
     # Kör populate-funktionen
     populate_db()
     # Skriv ut antal skapade transaktioner: 5 × 10 000 = 50 000
-    print(f"Database populated with {len(ACCOUNT_IDS) * TRANSACTIONS_PER_ACCOUNT} transactions")
+    print(f"Database populated with {len(ACCOUNT_IDS) * TRANSACTIONS_PER_ACCOUNT} transactions and {len(ACCOUNT_IDS)} accounts")

@@ -71,6 +71,21 @@ async def init_db():
             """
         )
 
+        # Denormalized accounts table — stores pre-computed balance.
+        # Without this, balance requires SUM(amount) over all K transactions
+        # for an account (O(K)).  With this, balance is a single row lookup
+        # on the primary key (O(1)).
+        # Trade-off: each INSERT into transactions also needs an UPDATE here,
+        # but reads are dramatically faster and reads >> writes in practice.
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS accounts (
+                account_id TEXT PRIMARY KEY,
+                balance REAL NOT NULL DEFAULT 0
+            )
+            """
+        )
+
         # Index on account_id — makes WHERE account_id=? queries fast
         # IF NOT EXISTS prevents errors on subsequent startups
         await db.execute(

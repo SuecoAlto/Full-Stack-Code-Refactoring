@@ -36,10 +36,10 @@ async def create_transaction(account_id: Any, amount: Any) -> dict:
         raise BadRequestError("Invalid input")
 
     async with get_connection() as db:
-        transaction_id = await repositories.insert_transaction(
+        result = await repositories.insert_transaction(
             db, account_id, amount
         )
-        return {"transaction_id": str(transaction_id)}
+        return {"transaction_id": str(result["transaction_id"])}
 
 
 async def get_transaction(transaction_id: str) -> dict:

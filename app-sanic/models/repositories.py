@@ -6,14 +6,36 @@ No business logic belongs here.
 """
 
 
-async def insert_transaction(db, account_id: str, amount: float) -> int:
-    """Insert a new transaction row and return its auto-generated ID."""
+async def insert_transaction(db, account_id: str, amount: float) -> dict:
+    """Insert a new transaction and update the denormalized account balance.
+
+    Uses INSERT ... ON CONFLICT to atomically create or update the account
+    row, and RETURNING balance to get the new balance without a second query.
+
+    Returns:
+        dict with transaction_id and the updated balance.
+    """
     cursor = await db.execute(
         "INSERT INTO transactions (account_id, amount) VALUES (?, ?)",
         (account_id, amount),
     )
+    transaction_id = cursor.lastrowid
+
+    # Upsert: INSERT the account if new, or add to existing balance.
+    # RETURNING gives us the result in the same round-trip — no extra SELECT.
+    cursor = await db.execute(
+        """
+        INSERT INTO accounts (account_id, balance) VALUES (?, ?)
+        ON CONFLICT(account_id) DO UPDATE SET balance = balance + excluded.balance
+        RETURNING balance
+        """,
+        (account_id, amount),
+    )
+    row = await cursor.fetchone()
+    balance = row[0]
+
     await db.commit()
-    return cursor.lastrowid
+    return {"transaction_id": transaction_id, "balance": balance}
 
 
 async def get_transaction_by_id(db, transaction_id: str) -> dict | None:
@@ -37,16 +59,24 @@ async def get_transaction_by_id(db, transaction_id: str) -> dict | None:
 
 
 async def get_all_transactions(db, account_id: str | None = None) -> list[dict]:
-    """Fetch all transactions, optionally filtered by account_id."""
+    """Fetch transactions, optionally filtered by account_id.
+
+    Returns the 50 most recent transactions (ORDER BY transaction_id DESC).
+    A real API never dumps an entire table — pagination via LIMIT keeps
+    response size bounded and prevents memory exhaustion on the server.
+    """
     if account_id:
         cursor = await db.execute(
             "SELECT transaction_id, account_id, amount "
-            "FROM transactions WHERE account_id = ?",
+            "FROM transactions WHERE account_id = ? "
+            "ORDER BY transaction_id DESC LIMIT 50",
             (account_id,),
         )
     else:
         cursor = await db.execute(
-            "SELECT transaction_id, account_id, amount FROM transactions"
+            "SELECT transaction_id, account_id, amount "
+            "FROM transactions "
+            "ORDER BY transaction_id DESC LIMIT 50"
         )
     rows = await cursor.fetchall()
     return [
@@ -60,25 +90,19 @@ async def get_all_transactions(db, account_id: str | None = None) -> list[dict]:
 
 
 async def get_account_balance(db, account_id: str) -> dict | None:
-    """Calculate account balance via SUM(amount).
+    """Look up the pre-computed balance from the accounts table.
 
-    Returns None if the account has no transactions (→ 404).
+    O(1) via primary key lookup — no SUM over K transactions needed.
+    Returns None if the account doesn't exist (→ 404).
     """
-    # Check existence first (LIMIT 1 = fast bail-out via index)
     cursor = await db.execute(
-        "SELECT 1 FROM transactions WHERE account_id = ? LIMIT 1",
-        (account_id,),
-    )
-    if not await cursor.fetchone():
-        return None
-
-    cursor = await db.execute(
-        "SELECT SUM(amount) FROM transactions WHERE account_id = ?",
+        "SELECT balance FROM accounts WHERE account_id = ?",
         (account_id,),
     )
     row = await cursor.fetchone()
-    balance = row[0] or 0
-    return {"account_id": account_id, "balance": balance}
+    if not row:
+        return None
+    return {"account_id": account_id, "balance": row[0]}
 
 
 async def get_distinct_account_ids(db) -> list[str]:
