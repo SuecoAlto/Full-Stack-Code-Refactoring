@@ -37,7 +37,7 @@ function TransactionItem({ transaction: tx, isLatest }) {
           </div>
         </div>
       )}
-      {isLatest && (
+      {isLatest && tx.balance != null && (
         <div className="balance-info">
           The current account balance is <code>${tx.balance}</code>
         </div>
