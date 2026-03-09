@@ -26,7 +26,7 @@ from config.settings import DB_PATH
 logger = logging.getLogger(__name__)
 
 
-def get_connection():
+def get_connection() -> aiosqlite.Connection:
     """Return an async context manager that opens a new aiosqlite connection.
 
     Each call creates a fresh connection with its own background thread.
@@ -39,7 +39,7 @@ def get_connection():
     return aiosqlite.connect(DB_PATH)
 
 
-async def init_db():
+async def init_db() -> None:
     """Enable WAL-mode and create schema.
 
     Called once at server startup via @app.before_server_start.

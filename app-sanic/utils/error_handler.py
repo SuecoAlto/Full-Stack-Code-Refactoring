@@ -5,18 +5,20 @@ exposed to the client.
 
 import logging
 
-from sanic.response import json
+from sanic import Sanic
+from sanic.request import Request
+from sanic.response import json, HTTPResponse
 
 from utils.exceptions import AppError
 
 logger = logging.getLogger(__name__)
 
 
-def register_error_handlers(app):
+def register_error_handlers(app: Sanic) -> None:
     """Attach global error handlers to the Sanic application."""
 
     @app.exception(AppError)
-    async def handle_app_error(request, exception):
+    async def handle_app_error(request: Request, exception: AppError) -> HTTPResponse:
         """Tier 1 — domain errors (400, 404).
 
         These are expected conditions raised by the service layer.
@@ -31,7 +33,7 @@ def register_error_handlers(app):
         return json({"error": exception.message}, status=exception.status_code)
 
     @app.exception(Exception)
-    async def handle_unexpected_error(request, exception):
+    async def handle_unexpected_error(request: Request, exception: Exception) -> HTTPResponse:
         """Tier 2 — unexpected errors (500).
 
         Catches everything not handled by Tier 1 (TypeError, sqlite3 errors,

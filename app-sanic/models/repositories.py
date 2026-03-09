@@ -5,9 +5,11 @@ all database operations so the event loop stays free.
 No business logic belongs here.
 """
 
+import aiosqlite
+
 
 async def insert_transaction(
-    db, account_id: str, amount: float, idempotency_key: str | None = None
+    db: aiosqlite.Connection, account_id: str, amount: float, idempotency_key: str | None = None
 ) -> dict:
     """Insert a new transaction and update the denormalized account balance.
 
@@ -67,7 +69,7 @@ async def insert_transaction(
     return {"transaction_id": transaction_id, "balance": balance, "is_duplicate": False}
 
 
-async def get_transaction_by_id(db, transaction_id: str) -> dict | None:
+async def get_transaction_by_id(db: aiosqlite.Connection, transaction_id: str) -> dict | None:
     """Fetch a single transaction by primary key.
 
     Returns None if not found.
@@ -87,7 +89,7 @@ async def get_transaction_by_id(db, transaction_id: str) -> dict | None:
     }
 
 
-async def get_all_transactions(db, account_id: str | None = None) -> list[dict]:
+async def get_all_transactions(db: aiosqlite.Connection, account_id: str | None = None) -> list[dict]:
     """Fetch transactions, optionally filtered by account_id.
 
     Returns the 50 most recent transactions (ORDER BY transaction_id DESC).
@@ -118,7 +120,7 @@ async def get_all_transactions(db, account_id: str | None = None) -> list[dict]:
     ]
 
 
-async def get_account_balance(db, account_id: str) -> dict | None:
+async def get_account_balance(db: aiosqlite.Connection, account_id: str) -> dict | None:
     """Look up the pre-computed balance from the accounts table.
 
     O(1) via primary key lookup — no SUM over K transactions needed.
@@ -134,7 +136,7 @@ async def get_account_balance(db, account_id: str) -> dict | None:
     return {"account_id": account_id, "balance": row[0]}
 
 
-async def get_distinct_account_ids(db) -> list[str]:
+async def get_distinct_account_ids(db: aiosqlite.Connection) -> list[str]:
     """Return all unique account IDs from the transactions table."""
     cursor = await db.execute("SELECT DISTINCT account_id FROM transactions")
     rows = await cursor.fetchall()

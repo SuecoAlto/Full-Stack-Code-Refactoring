@@ -55,7 +55,12 @@ class UnitOfWork:
         await self._conn.execute("BEGIN EXCLUSIVE")
         return self._conn
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> None:
         try:
             if exc_type is None:
                 await self._conn.execute("COMMIT")
