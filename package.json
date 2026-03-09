@@ -8,7 +8,8 @@
     "start:backend": "cd app-sanic && sanic server.app",
     "start:frontend": "cd app-react && npm run start",
     "start": "npm run start:backend & npm run start:frontend",
-    "test": "cypress run"
+    "test": "cypress run",
+    "test:ui": "cypress open"
   },
   "devDependencies": {
     "cypress": "^12.17.1"
