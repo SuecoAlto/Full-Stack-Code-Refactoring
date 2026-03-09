@@ -24,7 +24,7 @@ function TransactionItem({ transaction: tx, isLatest }) {
         <div className="withdrawal">
           <div>Transaction amount (withdrawal)</div>
           <div>
-            Transferred <code>${Math.abs(tx.amount)}</code> from account{" "}
+            Withdrew <code>-${Math.abs(tx.amount)}</code> from account{" "}
             <strong>{tx.account_id}</strong>
           </div>
         </div>

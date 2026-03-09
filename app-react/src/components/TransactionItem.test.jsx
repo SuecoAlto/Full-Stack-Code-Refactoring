@@ -16,7 +16,7 @@ describe("TransactionItem", () => {
     const tx = { account_id: "acc-2", amount: -50, balance: 50 };
     render(<TransactionItem transaction={tx} isLatest={false} />);
 
-    const amountElement = screen.getByText("$50");
+    const amountElement = screen.getByText("-$50");
     expect(amountElement).toBeInTheDocument();
     expect(amountElement.closest(".withdrawal")).toBeInTheDocument();
     expect(amountElement.closest(".deposit")).not.toBeInTheDocument();
