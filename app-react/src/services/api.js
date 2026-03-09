@@ -14,18 +14,18 @@ const API_URL = "http://localhost:8000";
  * @returns {Promise<Object>} Response containing the generated transaction_id.
  */
 export async function createTransaction(accountId, amount) {
-	const response = await fetch(`${API_URL}/transactions`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ account_id: accountId, amount }),
-	});
+  const response = await fetch(`${API_URL}/transactions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ account_id: accountId, amount }),
+  });
 
-	if (!response.ok) {
-		const body = await response.json().catch(() => ({}));
-		throw new Error(body.error || "Failed to create transaction");
-	}
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to create transaction");
+  }
 
-	return response.json();
+  return response.json();
 }
 
 /**
@@ -34,13 +34,13 @@ export async function createTransaction(accountId, amount) {
  * @returns {Promise<Object>} Transaction details (transaction_id, account_id, amount).
  */
 export async function fetchTransaction(transactionId) {
-	const response = await fetch(`${API_URL}/transactions/${transactionId}`);
+  const response = await fetch(`${API_URL}/transactions/${transactionId}`);
 
-	if (!response.ok) {
-		throw new Error("Failed to fetch transaction");
-	}
+  if (!response.ok) {
+    throw new Error("Failed to fetch transaction");
+  }
 
-	return response.json();
+  return response.json();
 }
 
 /**
@@ -49,13 +49,13 @@ export async function fetchTransaction(transactionId) {
  * @returns {Promise<Object>} Account object with account_id and balance.
  */
 export async function fetchAccount(accountId) {
-	const response = await fetch(`${API_URL}/accounts/${accountId}`);
+  const response = await fetch(`${API_URL}/accounts/${accountId}`);
 
-	if (!response.ok) {
-		throw new Error("Failed to fetch account");
-	}
+  if (!response.ok) {
+    throw new Error("Failed to fetch account");
+  }
 
-	return response.json();
+  return response.json();
 }
 
 /**
@@ -64,16 +64,14 @@ export async function fetchAccount(accountId) {
  * @returns {Promise<Array>} Array of transaction objects.
  */
 export async function fetchTransactions(accountId) {
-	const query = accountId
-		? `?account_id=${encodeURIComponent(accountId)}`
-		: "";
-	const response = await fetch(`${API_URL}/transactions${query}`);
+  const query = accountId ? `?account_id=${encodeURIComponent(accountId)}` : "";
+  const response = await fetch(`${API_URL}/transactions${query}`);
 
-	if (!response.ok) {
-		throw new Error("Failed to load transactions");
-	}
+  if (!response.ok) {
+    throw new Error("Failed to load transactions");
+  }
 
-	return response.json();
+  return response.json();
 }
 
 /**
@@ -81,11 +79,11 @@ export async function fetchTransactions(accountId) {
  * @returns {Promise<Object>} Object with count and account_ids array.
  */
 export async function fetchAccountCount() {
-	const response = await fetch(`${API_URL}/accounts/count`);
+  const response = await fetch(`${API_URL}/accounts/count`);
 
-	if (!response.ok) {
-		throw new Error("Failed to fetch account count");
-	}
+  if (!response.ok) {
+    throw new Error("Failed to fetch account count");
+  }
 
-	return response.json();
+  return response.json();
 }
