@@ -25,8 +25,11 @@ async def create_transaction(request):
     data = request.json or {}
     account_id = data.get("account_id")
     amount = data.get("amount")
+    idempotency_key = data.get("idempotency_key")
 
-    result = await transaction_service.create_transaction(account_id, amount)
+    result = await transaction_service.create_transaction(
+        account_id, amount, idempotency_key
+    )
     return json(result, status=201)
 
 

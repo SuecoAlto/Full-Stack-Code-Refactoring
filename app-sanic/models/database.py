@@ -60,13 +60,18 @@ async def init_db():
         # WAL-mode — persistent (survives restarts, stored in DB file)
         await db.execute("PRAGMA journal_mode=WAL")
 
-        # Create the transactions table if it doesn't exist
+        # Create the transactions table if it doesn't exist.
+        # idempotency_key: optional client-generated key for retry safety.
+        # UNIQUE allows multiple NULLs (SQL standard) so requests without
+        # a key still work.  When a key IS provided, a duplicate INSERT
+        # is caught and the existing transaction is returned instead.
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS transactions (
                 transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 account_id TEXT NOT NULL,
-                amount REAL NOT NULL
+                amount REAL NOT NULL,
+                idempotency_key TEXT UNIQUE
             )
             """
         )

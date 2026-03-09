@@ -5,13 +5,9 @@ the repository.  It knows nothing about HTTP or Sanic — only
 domain rules.  Errors are raised as typed exceptions that the
 global error handler translates into JSON responses.
 
-All functions are async because the underlying repository layer
-uses aiosqlite (non-blocking database access).
-
-Each function opens its own database connection via:
-    async with get_connection() as db:
-This gives every request an isolated connection — essential for
-transaction isolation (BEGIN EXCLUSIVE) in the next phase.
+Write operations use UnitOfWork for atomic transactions
+(BEGIN EXCLUSIVE → COMMIT / ROLLBACK).
+Read operations use plain get_connection() — no locking needed.
 """
 
 from __future__ import annotations
@@ -19,12 +15,19 @@ from __future__ import annotations
 from typing import Any
 
 from models.database import get_connection
+from models.unit_of_work import UnitOfWork
 from models import repositories
 from utils.exceptions import BadRequestError, NotFoundError
 
 
-async def create_transaction(account_id: Any, amount: Any) -> dict:
-    """Validate input and persist a new transaction.
+async def create_transaction(
+    account_id: Any, amount: Any, idempotency_key: str | None = None
+) -> dict:
+    """Validate input and persist a new transaction atomically.
+
+    Uses UnitOfWork to wrap INSERT + balance update in a single
+    BEGIN EXCLUSIVE transaction.  If the request is a retry
+    (duplicate idempotency_key), returns the original result.
 
     Returns:
         dict with the generated transaction_id.
@@ -35,9 +38,9 @@ async def create_transaction(account_id: Any, amount: Any) -> dict:
     if not account_id or amount is None:
         raise BadRequestError("Invalid input")
 
-    async with get_connection() as db:
+    async with UnitOfWork() as db:
         result = await repositories.insert_transaction(
-            db, account_id, amount
+            db, account_id, amount, idempotency_key
         )
         return {"transaction_id": str(result["transaction_id"])}
 

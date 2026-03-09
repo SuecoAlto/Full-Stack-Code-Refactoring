@@ -6,18 +6,48 @@ No business logic belongs here.
 """
 
 
-async def insert_transaction(db, account_id: str, amount: float) -> dict:
+async def insert_transaction(
+    db, account_id: str, amount: float, idempotency_key: str | None = None
+) -> dict:
     """Insert a new transaction and update the denormalized account balance.
+
+    If idempotency_key is provided and already exists, returns the existing
+    transaction without modifying the balance (safe retry).
 
     Uses INSERT ... ON CONFLICT to atomically create or update the account
     row, and RETURNING balance to get the new balance without a second query.
 
+    NOTE: This function does NOT commit.  Commit responsibility belongs
+    to the Unit of Work that owns the connection.
+
     Returns:
-        dict with transaction_id and the updated balance.
+        dict with transaction_id, balance, and is_duplicate flag.
     """
+    # Idempotency check: if this key was already processed, return existing result
+    if idempotency_key is not None:
+        cursor = await db.execute(
+            "SELECT transaction_id FROM transactions WHERE idempotency_key = ?",
+            (idempotency_key,),
+        )
+        existing = await cursor.fetchone()
+        if existing:
+            transaction_id = existing[0]
+            # Fetch current balance (already updated by the original request)
+            cursor = await db.execute(
+                "SELECT balance FROM accounts WHERE account_id = ?",
+                (account_id,),
+            )
+            row = await cursor.fetchone()
+            balance = row[0] if row else 0
+            return {
+                "transaction_id": transaction_id,
+                "balance": balance,
+                "is_duplicate": True,
+            }
+
     cursor = await db.execute(
-        "INSERT INTO transactions (account_id, amount) VALUES (?, ?)",
-        (account_id, amount),
+        "INSERT INTO transactions (account_id, amount, idempotency_key) VALUES (?, ?, ?)",
+        (account_id, amount, idempotency_key),
     )
     transaction_id = cursor.lastrowid
 
@@ -34,8 +64,7 @@ async def insert_transaction(db, account_id: str, amount: float) -> dict:
     row = await cursor.fetchone()
     balance = row[0]
 
-    await db.commit()
-    return {"transaction_id": transaction_id, "balance": balance}
+    return {"transaction_id": transaction_id, "balance": balance, "is_duplicate": False}
 
 
 async def get_transaction_by_id(db, transaction_id: str) -> dict | None:
