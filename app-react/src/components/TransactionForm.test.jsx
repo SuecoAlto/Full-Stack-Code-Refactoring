@@ -8,7 +8,7 @@ describe("TransactionForm", () => {
 
     const errorEl = screen.getByText("Invalid amount");
     expect(errorEl).toBeInTheDocument();
-    expect(errorEl.className).toBe("error");
+    expect(errorEl).toHaveClass("error");
   });
 
   test("preserves input values when onSubmit returns false", async () => {
@@ -17,16 +17,16 @@ describe("TransactionForm", () => {
 
     render(<TransactionForm onSubmit={mockSubmit} error="" />);
 
-    const accountInput = document.querySelector('[data-type="account-id"]');
-    const amountInput = document.querySelector('[data-type="amount"]');
+    const accountInput = screen.getByLabelText("Account ID:");
+    const amountInput = screen.getByLabelText("Amount:");
 
     await user.type(accountInput, "abc123");
     await user.type(amountInput, "500");
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(mockSubmit).toHaveBeenCalledWith("abc123", "500");
-    expect(accountInput.value).toBe("abc123");
-    expect(amountInput.value).toBe("500");
+    expect(accountInput).toHaveValue("abc123");
+    expect(amountInput).toHaveValue("500");
   });
 
   test("clears input values when onSubmit returns true", async () => {
@@ -35,15 +35,15 @@ describe("TransactionForm", () => {
 
     render(<TransactionForm onSubmit={mockSubmit} error="" />);
 
-    const accountInput = document.querySelector('[data-type="account-id"]');
-    const amountInput = document.querySelector('[data-type="amount"]');
+    const accountInput = screen.getByLabelText("Account ID:");
+    const amountInput = screen.getByLabelText("Amount:");
 
     await user.type(accountInput, "abc123");
     await user.type(amountInput, "500");
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(mockSubmit).toHaveBeenCalledWith("abc123", "500");
-    expect(accountInput.value).toBe("");
-    expect(amountInput.value).toBe("");
+    expect(accountInput).toHaveValue("");
+    expect(amountInput).toHaveValue("");
   });
 });

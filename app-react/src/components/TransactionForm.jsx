@@ -29,8 +29,9 @@ function TransactionForm({ onSubmit, error }) {
       <h2>Submit new transaction</h2>
       <form onSubmit={handleFormSubmit}>
         <div className="form-group">
-          <label>Account ID:</label>
+          <label htmlFor="account-id">Account ID:</label>
           <input
+            id="account-id"
             type="text"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -39,8 +40,9 @@ function TransactionForm({ onSubmit, error }) {
           />
         </div>
         <div className="form-group">
-          <label>Amount:</label>
+          <label htmlFor="amount">Amount:</label>
           <input
+            id="amount"
             type="text"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
