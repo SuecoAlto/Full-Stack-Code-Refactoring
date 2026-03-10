@@ -8,10 +8,11 @@ The original architecture suffered from linear O(N) time complexity on read oper
 
 The system was redesigned for production readiness:
 
-1. CQRS & Denormalization for scaling (Solving the O(N) Read Bottleneck)
-2. The Unit of Work Pattern (Solving Race Conditions)
-3. Idempotency (Safe retries on network failures)
-4. Two-Tier Error Handling — Safe error responses without leaking internals
+1. Layered Architecture — Strict separation of concerns
+2. CQRS & Denormalization for scaling (Solving the O(N) Read Bottleneck)
+3. The Unit of Work Pattern (Solving Race Conditions)
+4. Idempotency (Safe retries on network failures)
+5. Two-Tier Error Handling — Safe error responses without leaking internals
 
 
 ## Tech Stack
@@ -52,15 +53,16 @@ app-react/src/
 
 ## Key Design Decisions
 
-| Decision             | Problem                                                       | Solution                                                                                         |
-| -------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Denormalized balance | GET /accounts/:id required SUM() over all transactions — O(n) | Pre-computed balance column updated atomically on each write — O(1)                              |
-| WAL-mode             | Default SQLite journal blocks readers during writes           | WAL separates readers from writers, enabling concurrent access                                   |
-| Unit of Work         | Denormalized balance creates risk of inconsistent state       | BEGIN EXCLUSIVE → atomic `balance = balance + ?` → COMMIT/ROLLBACK                               |
-| Idempotency          | Network retries could create duplicate transactions           | UNIQUE constraint on idempotency_key — safe to retry                                             |
-| aiosqlite            | Synchronous sqlite3 blocks Sanic's event loop                 | Non-blocking I/O via background thread — event loop stays free                                   |
-| Explicit INDEX       | Queries on account_id require full table scan — O(n)          | B-tree index enables O(log n) lookups                                                            |
-| Two-tier errors      | Risk of leaking internal details to client                    | Domain errors (4xx) return safe messages; unexpected errors (500) log full traceback server-side |
+| Decision             | Problem                                                                                | Solution                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Layered Architecture | HTTP logic and database queries in one file makes testing hard and code unmaintainable | Decoupled into Routes, Services, Repositories and more                                           |
+| Denormalized balance | GET /accounts/:id required SUM() over all transactions — O(n)                          | Pre-computed balance column updated atomically on each write — O(1)                              |
+| WAL-mode             | Default SQLite journal blocks readers during writes                                    | WAL separates readers from writers, enabling concurrent access                                   |
+| Unit of Work         | Denormalized balance creates risk of inconsistent state                                | BEGIN EXCLUSIVE → atomic `balance = balance + ?` → COMMIT/ROLLBACK                               |
+| Idempotency          | Network retries could create duplicate transactions                                    | UNIQUE constraint on idempotency_key — safe to retry                                             |
+| aiosqlite            | Synchronous sqlite3 blocks Sanic's event loop                                          | Non-blocking I/O via background thread — event loop stays free                                   |
+| Explicit INDEX       | Queries on account_id require full table scan — O(n)                                   | B-tree index enables O(log n) lookups                                                            |
+| Two-tier errors      | Risk of leaking internal details to client                                             | Domain errors (4xx) return safe messages; unexpected errors (500) log full traceback server-side |
 
 ## Code Quality
   - **Type safety**: Python type annotations on all service, repository, and route functions
@@ -87,7 +89,7 @@ npm run build
 
 # 3. Start both servers
 # Backend runs on http://localhost:8000
-# Frontend runs on http://localhost:3000):
+# Frontend runs on http://localhost:3000
 npm run start
 ```
 
@@ -109,7 +111,7 @@ npm run start
 
 ## Running Tests
 
-The test suite is split into three layers:
+The test part is split into three layers:
 
 - **Cypress (End 2 End):** Verifies the full user flow — create transactions, read balances, reject invalid input.
 - **pytest (Backend):** 14 integration tests proving ACID guarantees, idempotency, validation rules, and race condition safety against a real SQLite database.
@@ -126,7 +128,7 @@ The application must be running before executing E2E tests
 ```bash
 npm run test
 
-# Or open the Cypress UI:
+# Or open the Cypress UI
 npm run test:ui
 ```
 
@@ -152,3 +154,33 @@ python -m pytest -v
 cd app-react
 npm run test
 ```
+
+#### Backend Tests — pytest 
+
+| #   | Test                      | What it proves                                               | Layer                |
+| --- | ------------------------- | ------------------------------------------------------------ | -------------------- |
+| 1   | create + read             | Round-trip works: POST → GET returns the same data           | Service              |
+| 2   | missing account_id        | BadRequestError (400) thrown on missing input                | Service              |
+| 3   | missing amount            | BadRequestError (400) thrown when amount=None                | Service              |
+| 4   | unknown transaction       | NotFoundError (404) thrown for unknown ID                    | Service              |
+| 5   | unknown account           | NotFoundError (404) thrown for unknown account               | Service              |
+| 6   | balance +10, -3 = 7       | Denormalized balance computes correctly                      | Service + Repository |
+| 7   | negative balance          | Negative balances are allowed (no business rule blocks them) | Service              |
+| 8   | duplicate idempotency_key | Same key → same transaction_id, no double-charge             | UoW + Repository     |
+| 9   | NULL keys independent     | UNIQUE allows multiple NULLs (SQL standard)                  | Repository           |
+| 10  | LIMIT 50                  | Pagination: 60 inserts → GET returns max 50                  | Repository           |
+| 11  | filter by account         | ?account_id=X filters correctly                              | Repository           |
+| 12  | UoW COMMIT                | Data persists after successful async with                    | UoW                  |
+| 13  | UoW ROLLBACK              | Data discarded when exception is raised inside UoW           | UoW                  |
+| 14  | 50 concurrent inserts     | BEGIN EXCLUSIVE prevents race conditions (balance = 5000)    | UoW + Service        |
+
+#### Frontend Test — Vitest
+
+| #   | Test                        | What it proves                                                | Component       |
+| --- | --------------------------- | ------------------------------------------------------------- | --------------- |
+| 1   | renders main layout         | App renders without crashing, both panels present             | App             |
+| 2   | error message renders       | error prop displays in .error div                             | TransactionForm |
+| 3   | inputs preserved on failure | Fields retain values when onSubmit returns false              | TransactionForm |
+| 4   | inputs cleared on success   | Fields clear when onSubmit returns true                       | TransactionForm |
+| 5   | deposit CSS class           | Positive amounts render with .deposit class                   | TransactionItem |
+| 6   | withdrawal CSS class        | Negative amounts render with .withdrawal class and minus sign | TransactionItem |
