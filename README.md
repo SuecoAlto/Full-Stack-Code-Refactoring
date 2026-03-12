@@ -1,6 +1,6 @@
 # Transaction Management System
 
-### Full-stack transaction management application built as part of the Alva Labs coding assessment.
+### Full-stack Concurrency protection, race conditions and time complexity O(1)
 
 This repository contains a full-stack transaction management system built with Python and React. The system has been re-architected to guarantee ACID compliance, handle high concurrency without race conditions, and provide O(1) read performance for account balances.
 
